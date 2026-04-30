@@ -67,12 +67,12 @@ auto IsWhitespace(char s) -> bool
 
 auto SkipWhitespace(std::string_view& str) -> std::optional<std::monostate>
 {
-  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostic
+  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
 
   while (IsWhitespace(str[0]))
   {
     str = str.substr(1);
-    if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostic
+    if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
   }
 
   return std::monostate{};
@@ -80,13 +80,13 @@ auto SkipWhitespace(std::string_view& str) -> std::optional<std::monostate>
 
 auto ParseString(std::string_view& str) -> std::optional<std::string_view>
 {
-  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostic
-  if (str[0] != '"') return std::nullopt; // XXX(Unavailable): diagnostic
+  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
+  if (str[0] != '"') return std::nullopt; // XXX(Unavailable): diagnostics
 
   std::size_t i = 0;
   while (++i)
   {
-    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostic
+    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
     if (str[i] == '"') break;
   }
 
@@ -96,20 +96,20 @@ auto ParseString(std::string_view& str) -> std::optional<std::string_view>
 auto NextKeyValue(std::string_view& str)
   -> std::optional<std::pair<std::string_view, Value>>
 {
-  TRY_(SkipWhitespace(str)); // XXX(Unavailable): diagnostic
+  TRY_(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
 
-  if (str[0] != '"') return std::nullopt; // XXX(Unavailable): diagnostic
+  if (str[0] != '"') return std::nullopt; // XXX(Unavailable): diagnostics
 
   std::string_view key;
-  TRY(ParseString(str), key); // XXX(Unavailable): diagnostic
+  TRY(ParseString(str), key); // XXX(Unavailable): diagnostics
 
-  TRY_(SkipWhitespace(str)); // XXX(Unavailable): diagnostic
+  TRY_(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
 
   std::string_view value;
   Value::Kind valueKind;
   if (str[0] == '"')
   {
-    TRY(ParseString(str), value); // XXX(Unavailable): diagnostic
+    TRY(ParseString(str), value); // XXX(Unavailable): diagnostics
     valueKind = Value::Kind::STRING;
   }
   else if (str[0] == '{')
@@ -119,7 +119,7 @@ auto NextKeyValue(std::string_view& str)
   }
   else
   {
-    return std::nullopt; // XXX(Unavailable): diagnostic
+    return std::nullopt; // XXX(Unavailable): diagnostics
   }
 
   return std::optional{std::pair{key, Value{value, valueKind}}};
@@ -127,8 +127,8 @@ auto NextKeyValue(std::string_view& str)
 
 auto SubstrUntilClosingPair(std::string_view& str) -> std::optional<std::string_view>
 {
-  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostic
-  if (str[0] != '{') return std::nullopt; // XXX(Unavailable): diagnostic
+  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
+  if (str[0] != '{') return std::nullopt; // XXX(Unavailable): diagnostics
 
   // XXX(Unavailable): better name?
   std::size_t counter = 0;
@@ -136,11 +136,11 @@ auto SubstrUntilClosingPair(std::string_view& str) -> std::optional<std::string_
   std::size_t i = 0;
   do
   {
-    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostic
+    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
 
     // XXX(Unavailable): switch statement?
-    // FIXME(Unavailable): Only checking '{' '}' is terrible; semmantic parsing
-    // is needed.
+    // FIXME(Unavailable): Only checking '{' '}' is terrible; semantic parsing
+    // would be preferred.
 
     if      (str[i] == '{') counter++;
     else if (str[i] == '}') counter--;
