@@ -154,16 +154,13 @@ auto FindClosingPair(std::string_view str) -> std::optional<std::size_t>
 // DOCS(Unavailable): Examples
 //
 // XXX(Unavailable): `bool strict`
-auto VisitVDF(
-  std::string_view vdf,
-  // XXX(Unavailable): Take a range
-  const std::vector<std::string_view>& keys
-) -> std::optional<std::string_view>
+template<std::ranges::input_range R>
+auto VisitVDF(std::string_view vdf, const R& keys) -> std::optional<std::string_view>
 {
-  if (keys.empty()) return {vdf};
+  if (std::ranges::empty(keys)) return {vdf};
 
-  auto keysBegin = keys.begin();
-  const auto keysEnd = keys.end();
+  auto keysBegin = std::ranges::begin(keys);
+  const auto keysEnd = std::ranges::end(keys);
 
   std::string_view curObj = vdf;
   for (;;)
@@ -180,8 +177,6 @@ auto VisitVDF(
       keysBegin = std::next(keysBegin);
       if (keysBegin == keysEnd)
       {
-        std::string_view result;
-
         // XXX(Unavailable): std::variant?
         if (value.kind == Value::Kind::OBJECT)
         {
@@ -230,24 +225,27 @@ auto VisitVDF(
 
 auto main() -> int
 {
+  using vector_sv = std::vector<std::string_view>;
+  std::ranges::empty_view<std::string_view> empty_view;
+
   // Idempotent
-  assert(VisitVDF(R"("")",     {}) == R"("")");
-  assert(VisitVDF(R"("a" {})", {}) == R"("a" {})");
+  assert(VisitVDF(R"("")",     empty_view) == R"("")");
+  assert(VisitVDF(R"("a" {})", empty_view) == R"("a" {})");
 
   // Root
-  assert(VisitVDF(R"("a" {})", {"a"}) == "{}");
+  assert(VisitVDF(R"("a" {})", vector_sv{"a"}) == "{}");
 
   // Inner
   auto abclibjav = R"("a" { "b" {} "c" { "lib" "jav" } })";
-  assert(VisitVDF(abclibjav, {"a", "b"}) == R"({})");
-  assert(VisitVDF(abclibjav, {"a", "c"}) == R"({ "lib" "jav" })");
+  assert(VisitVDF(abclibjav, vector_sv{"a", "b"}) == R"({})");
+  assert(VisitVDF(abclibjav, vector_sv{"a", "c"}) == R"({ "lib" "jav" })");
 
   // XXX(Unavailable): Passes for now, shouldn't with `strict = true`.
-  assert(VisitVDF(R"("a" {{}})"            , {})         == R"("a" {{}})"); // Parser doesn't validate the whole input.
-  assert(VisitVDF(R"("a" {} "b" {})"       , {"b"})      == "{}"); // Top-level doesn't allow multiple keys.
-  assert(VisitVDF(R"("a" { "b" {}} {{}} })", {"a", "b"}) == "{}"); // Parser doesn't validate the whole input.
+  assert(VisitVDF(R"("a" {{}})"            , empty_view)          == R"("a" {{}})"); // Parser doesn't validate the whole input.
+  assert(VisitVDF(R"("a" {} "b" {})"       , vector_sv{"b"})      == "{}"); // Top-level doesn't allow multiple keys.
+  assert(VisitVDF(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}) == "{}"); // Parser doesn't validate the whole input.
   // XXX(Unavailable): This should probably also fail with `strict = false`.
-  assert(VisitVDF(R"("a" { "b" {"a"} })", {"a", "b"})    == R"({"a"})"); // Object parsing doesn't validate contents inside "{}".
+  assert(VisitVDF(R"("a" { "b" {"a"} })"   , vector_sv{"a", "b"}) == R"({"a"})"); // Object parsing doesn't validate contents inside "{}".
 
   // XXX(Unavailable): Test steam configuration files.
 
