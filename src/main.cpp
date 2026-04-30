@@ -50,13 +50,22 @@ struct Value
     }                          \
   } while (0)
 
+auto SplitAt(std::string_view& str, std::size_t i)
+  -> std::optional<std::string_view>
+{
+  if (i > str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
+
+  auto left = str.substr(0, i);
+  str = str.substr(i);
+  return {left};
+}
+
 auto IsWhitespace(char s) -> bool
 {
   return s == ' ' || s == '\f' || s == '\n' || s == '\r' || s == '\t' || s == '\v';
 }
 
-// XXX(Unavailable): return `std::optional<()>`
-auto SkipWhitespace(std::string_view& str) -> std::optional<bool>
+auto SkipWhitespace(std::string_view& str) -> std::optional<std::monostate>
 {
   if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostic
 
@@ -66,7 +75,7 @@ auto SkipWhitespace(std::string_view& str) -> std::optional<bool>
     if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostic
   }
 
-  return {true};
+  return std::monostate{};
 }
 
 auto ParseString(std::string_view& str) -> std::optional<std::string_view>
@@ -81,11 +90,7 @@ auto ParseString(std::string_view& str) -> std::optional<std::string_view>
     if (str[i] == '"') break;
   }
 
-  i += 1; // substr() is [start,end)
-  auto string = str.substr(0, i);
-  str = str.substr(i);
-
-  return {string};
+  return SplitAt(str, i + 1); // XXX(Unavailable): diagnostics
 }
 
 auto NextKeyValue(std::string_view& str)
@@ -120,9 +125,7 @@ auto NextKeyValue(std::string_view& str)
   return std::optional{std::pair{key, Value{value, valueKind}}};
 }
 
-// XXX(Unavailable): return the substr instead of the index of '{' + '}', and
-// also modify str, just like `NextKeyValue`.
-auto FindClosingPair(std::string_view str) -> std::optional<std::size_t>
+auto SubstrUntilClosingPair(std::string_view& str) -> std::optional<std::string_view>
 {
   if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostic
   if (str[0] != '{') return std::nullopt; // XXX(Unavailable): diagnostic
@@ -146,7 +149,7 @@ auto FindClosingPair(std::string_view str) -> std::optional<std::size_t>
   }
   while (++i);
 
-  return {i+1};
+  return SplitAt(str, i + 1); // XXX(Unavailable): diagnostics
 }
 
 // Visit the contents of a `vdf` file contents.
@@ -180,9 +183,7 @@ auto VisitVDF(std::string_view vdf, const R& keys) -> std::optional<std::string_
         // XXX(Unavailable): std::variant?
         if (value.kind == Value::Kind::OBJECT)
         {
-          std::size_t idx;
-          TRY(FindClosingPair(curObj), idx); // XXX(Unavailable): diagnostics
-          return {curObj.substr(0, idx)};
+          return SubstrUntilClosingPair(curObj); // XXX(Unavailable): diagnostics
         }
         else if (value.kind == Value::Kind::STRING)
         {
@@ -211,9 +212,7 @@ auto VisitVDF(std::string_view vdf, const R& keys) -> std::optional<std::string_
         // return if the current object is root, since we know that root only
         // has 1 key.
 
-        std::size_t idx;
-        TRY(FindClosingPair(curObj), idx); // XXX(Unavailable): diagnostics
-        curObj = curObj.substr(idx);
+        TRY_(SubstrUntilClosingPair(curObj)); // XXX(Unavailable): diagnostics
       }
     }
   }
