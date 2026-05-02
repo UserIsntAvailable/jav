@@ -18,11 +18,8 @@ struct Value
     STRING,
   };
 
-  // If `kind` is `STRING`, this points to the exact substring of the value,
-  // (e.g "value"), however, if `kind` is `OBJECT`, then the start of value
-  // points to '{', but it doesn't end at the matching '}'.
-  std::string_view data;
   Kind             kind;
+  std::string_view data;
 };
 
 #define TRY(EXPR)                      \
@@ -61,10 +58,10 @@ auto SplitAt(std::string_view& str, std::size_t i)
   return {left};
 }
 
+// PRECONDITIONS: str is not empty and starts with '"'.
 auto ParseString(std::string_view& str) -> std::optional<std::string_view>
 {
-  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
-  if (str[0] != '"') return std::nullopt; // XXX(Unavailable): diagnostics
+  assert(!str.empty() && str[0] == '"');
 
   auto pos = str.substr(1).find('"');
   return pos == std::string_view::npos
@@ -72,10 +69,10 @@ auto ParseString(std::string_view& str) -> std::optional<std::string_view>
     : SplitAt(str, pos + 2); // XXX(Unavailable): diagnostics
 }
 
+// PRECONDITIONS: str is not empty and starts with '{'.
 auto ParseObject(std::string_view& str) -> std::optional<std::string_view>
 {
-  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
-  if (str[0] != '{') return std::nullopt; // XXX(Unavailable): diagnostics
+  assert(!str.empty() && str[0] == '{');
 
   // XXX(Unavailable): better name?
   std::size_t counter = 0;
@@ -118,7 +115,7 @@ auto NextKeyValue(std::string_view& str)
   }
   else if (str[0] == '{')
   {
-    value = str;
+    value = TRY(ParseObject(str)); // XXX(Unavailable): diagnostics
     valueKind = Value::Kind::OBJECT;
   }
   else
@@ -126,7 +123,7 @@ auto NextKeyValue(std::string_view& str)
     return std::nullopt; // XXX(Unavailable): diagnostics
   }
 
-  return std::optional{std::pair{key, Value{value, valueKind}}};
+  return std::optional{std::pair{key, Value{valueKind, value}}};
 }
 
 // Visit the contents of a `vdf` file contents.
@@ -152,42 +149,10 @@ auto VisitVDF(std::string_view vdf, const R& keys)
     if (keyStripped == *keysBegin)
     {
       keysBegin = std::next(keysBegin);
-      if (keysBegin == keysEnd)
-      {
-        // XXX(Unavailable): std::variant?
-        if (value.kind == Value::Kind::OBJECT)
-        {
-          return ParseObject(curObj); // XXX(Unavailable): diagnostics
-        }
-        else if (value.kind == Value::Kind::STRING)
-        {
-          return {value.data};
-        }
-
-        std::unreachable(); // only OBJECT and STRING
-      }
+      if (keysBegin == keysEnd) return {value.data};
 
       if (value.kind != Value::Kind::OBJECT) return std::nullopt; // XXX(unavailable): diagnostics
       curObj = value.data.substr(1); // Skip '{'
-    }
-    else
-    {
-      // NextKeyValue() can only get the next key value pair if the kind of the
-      // previous parsed value is `STRING`. In order to find the next key after
-      // a value of kind `OBJECT`, you need to find the matching closing '}',
-      // which is currently not handled by the current implementation of
-      // NextKeyValue().
-      //
-      // A possible change for NextKeyValue() would be to give it a previous
-      // key value pair hint, indicating the kind of the previous value.
-      if (value.kind == Value::Kind::OBJECT)
-      {
-        // XXX(Unavailable): A possible optimisation here would be to early
-        // return if the current object is root, since we know that root only
-        // has 1 key.
-
-        TRY(ParseObject(curObj)); // XXX(Unavailable): diagnostics
-      }
     }
   }
 
@@ -212,6 +177,9 @@ auto main() -> int
   auto abclibjav = R"("a" { "b" {} "c" { "lib" "jav" } })";
   assert(VisitVDF(abclibjav, vector_sv{"a", "b"}) == R"({})");
   assert(VisitVDF(abclibjav, vector_sv{"a", "c"}) == R"({ "lib" "jav" })");
+
+  // Key repeat
+  assert(VisitVDF(R"("a" { "a" { "a" "a" }})", vector_sv{"a", "a", "a"}) == R"("a")");
 
   // XXX(Unavailable): Passes for now, shouldn't with `strict = true`.
   assert(VisitVDF(R"("a" {{}})"            , empty_view)          == R"("a" {{}})"); // Parser doesn't validate the whole input.
