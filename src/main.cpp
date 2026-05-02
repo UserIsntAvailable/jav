@@ -3,7 +3,8 @@
 #include <ranges>
 #include <vector>
 
-// XXX(Unavailable): constexpr all things
+// XXX(Unavailable): constexpr all things.
+// XXX(Unavailable): Document usage of ({}) extension. ~~sorry not sorry MSVC~~
 
 // namespace Tokenizer
 
@@ -24,19 +25,12 @@ struct Value
   Kind             kind;
 };
 
-#define TRY(EXPR, LOC)              \
-  do {                              \
-    if (auto _opt_ = (EXPR); _opt_) \
-    {                               \
-      LOC = *_opt_;                 \
-    }                               \
-    else                            \
-    {                               \
-      return std::nullopt;          \
-    }                               \
-  } while (0)
-
-#define TRY_(EXPR) TRY(EXPR, auto _)
+#define TRY(EXPR)                      \
+  ({                                   \
+      auto _opt_ = (EXPR);             \
+      if (!_opt_) return std::nullopt; \
+      *_opt_;                          \
+  })
 
 auto IsWhitespace(char c) -> bool
 {
@@ -107,20 +101,19 @@ auto ParseObject(std::string_view& str) -> std::optional<std::string_view>
 auto NextKeyValue(std::string_view& str)
   -> std::optional<std::pair<std::string_view, Value>>
 {
-  TRY_(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
+  TRY(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
 
   if (str[0] != '"') return std::nullopt; // XXX(Unavailable): diagnostics
 
-  std::string_view key;
-  TRY(ParseString(str), key); // XXX(Unavailable): diagnostics
+  auto key = TRY(ParseString(str)); // XXX(Unavailable): diagnostics
 
-  TRY_(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
+  TRY(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
 
   std::string_view value;
   Value::Kind valueKind;
   if (str[0] == '"')
   {
-    TRY(ParseString(str), value); // XXX(Unavailable): diagnostics
+    value = TRY(ParseString(str)); // XXX(Unavailable): diagnostics
     valueKind = Value::Kind::STRING;
   }
   else if (str[0] == '{')
@@ -153,11 +146,7 @@ auto VisitVDF(std::string_view vdf, const R& keys)
   std::string_view curObj = vdf;
   for (;;)
   {
-    auto keyValue = NextKeyValue(curObj);
-
-    if (!keyValue.has_value()) return std::nullopt;
-
-    const auto [key, value] = *keyValue;
+    const auto [key, value] = TRY(NextKeyValue(curObj)); // XXX(unavailable): diagnostics
     const auto keyStripped = key.substr(1, key.size() - 2);
 
     if (keyStripped == *keysBegin)
@@ -197,7 +186,7 @@ auto VisitVDF(std::string_view vdf, const R& keys)
         // return if the current object is root, since we know that root only
         // has 1 key.
 
-        TRY_(ParseObject(curObj)); // XXX(Unavailable): diagnostics
+        TRY(ParseObject(curObj)); // XXX(Unavailable): diagnostics
       }
     }
   }

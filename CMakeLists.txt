@@ -12,10 +12,12 @@ add_executable(jav)
 target_compile_options(jav PRIVATE
   -Wall
   -Wextra
-  -Wpedantic
   -Wconversion
   -Wold-style-cast
   -Wunused
+
+  -Wpedantic
+  -Wno-c++26-extensions
 )
 
 target_sources(jav PRIVATE src/main.cpp)
