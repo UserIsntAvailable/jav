@@ -42,13 +42,7 @@ struct Value
     }                               \
   } while (0)
 
-#define TRY_(EXPR)             \
-  do {                         \
-    if (!((EXPR).has_value())) \
-    {                          \
-      return std::nullopt;     \
-    }                          \
-  } while (0)
+#define TRY_(EXPR) TRY(EXPR, auto _)
 
 auto SplitAt(std::string_view& str, std::size_t i)
   -> std::optional<std::string_view>
@@ -60,22 +54,23 @@ auto SplitAt(std::string_view& str, std::size_t i)
   return {left};
 }
 
-auto IsWhitespace(char s) -> bool
+auto IsWhitespace(char c) -> bool
 {
-  return s == ' ' || s == '\f' || s == '\n' || s == '\r' || s == '\t' || s == '\v';
+  return c == ' '
+    || c == '\f'
+    || c == '\n'
+    || c == '\r'
+    || c == '\t'
+    || c == '\v';
 }
 
 auto SkipWhitespace(std::string_view& str) -> std::optional<std::monostate>
 {
-  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
-
-  while (IsWhitespace(str[0]))
-  {
-    str = str.substr(1);
-    if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
-  }
-
-  return std::monostate{};
+  auto view = str | std::views::drop_while(IsWhitespace);
+  std::string_view trim {view.begin(), view.end()};
+  return (str = trim).empty()
+    ? std::nullopt // XXX(Unavailable): diagnostics
+    : std::optional{std::monostate{}};
 }
 
 auto ParseString(std::string_view& str) -> std::optional<std::string_view>
@@ -83,14 +78,10 @@ auto ParseString(std::string_view& str) -> std::optional<std::string_view>
   if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
   if (str[0] != '"') return std::nullopt; // XXX(Unavailable): diagnostics
 
-  std::size_t i = 0;
-  while (++i)
-  {
-    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
-    if (str[i] == '"') break;
-  }
-
-  return SplitAt(str, i + 1); // XXX(Unavailable): diagnostics
+  auto pos = str.substr(1).find('"');
+  return pos == std::string_view::npos
+    ? std::nullopt // XXX(Unavailable): diagnostics
+    : SplitAt(str, pos + 2); // XXX(Unavailable): diagnostics
 }
 
 auto NextKeyValue(std::string_view& str)
@@ -125,7 +116,7 @@ auto NextKeyValue(std::string_view& str)
   return std::optional{std::pair{key, Value{value, valueKind}}};
 }
 
-auto SubstrUntilClosingPair(std::string_view& str) -> std::optional<std::string_view>
+auto ParseObject(std::string_view& str) -> std::optional<std::string_view>
 {
   if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
   if (str[0] != '{') return std::nullopt; // XXX(Unavailable): diagnostics
@@ -138,7 +129,6 @@ auto SubstrUntilClosingPair(std::string_view& str) -> std::optional<std::string_
   {
     if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
 
-    // XXX(Unavailable): switch statement?
     // FIXME(Unavailable): Only checking '{' '}' is terrible; semantic parsing
     // would be preferred.
 
@@ -158,7 +148,8 @@ auto SubstrUntilClosingPair(std::string_view& str) -> std::optional<std::string_
 //
 // XXX(Unavailable): `bool strict`
 template<std::ranges::input_range R>
-auto VisitVDF(std::string_view vdf, const R& keys) -> std::optional<std::string_view>
+auto VisitVDF(std::string_view vdf, const R& keys)
+  -> std::optional<std::string_view>
 {
   if (std::ranges::empty(keys)) return {vdf};
 
@@ -183,7 +174,7 @@ auto VisitVDF(std::string_view vdf, const R& keys) -> std::optional<std::string_
         // XXX(Unavailable): std::variant?
         if (value.kind == Value::Kind::OBJECT)
         {
-          return SubstrUntilClosingPair(curObj); // XXX(Unavailable): diagnostics
+          return ParseObject(curObj); // XXX(Unavailable): diagnostics
         }
         else if (value.kind == Value::Kind::STRING)
         {
@@ -212,7 +203,7 @@ auto VisitVDF(std::string_view vdf, const R& keys) -> std::optional<std::string_
         // return if the current object is root, since we know that root only
         // has 1 key.
 
-        TRY_(SubstrUntilClosingPair(curObj)); // XXX(Unavailable): diagnostics
+        TRY_(ParseObject(curObj)); // XXX(Unavailable): diagnostics
       }
     }
   }
