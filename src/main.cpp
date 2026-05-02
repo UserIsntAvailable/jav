@@ -1,12 +1,6 @@
 #include <cassert>
-#include <cctype>
-#include <cstddef>
-#include <iterator>
-#include <optional>
 #include <print>
 #include <ranges>
-#include <string_view>
-#include <utility>
 #include <vector>
 
 // XXX(Unavailable): constexpr all things
@@ -44,16 +38,6 @@ struct Value
 
 #define TRY_(EXPR) TRY(EXPR, auto _)
 
-auto SplitAt(std::string_view& str, std::size_t i)
-  -> std::optional<std::string_view>
-{
-  if (i > str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
-
-  auto left = str.substr(0, i);
-  str = str.substr(i);
-  return {left};
-}
-
 auto IsWhitespace(char c) -> bool
 {
   return c == ' '
@@ -73,6 +57,16 @@ auto SkipWhitespace(std::string_view& str) -> std::optional<std::monostate>
     : std::optional{std::monostate{}};
 }
 
+auto SplitAt(std::string_view& str, std::size_t i)
+  -> std::optional<std::string_view>
+{
+  if (i > str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
+
+  auto left = str.substr(0, i);
+  str = str.substr(i);
+  return {left};
+}
+
 auto ParseString(std::string_view& str) -> std::optional<std::string_view>
 {
   if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
@@ -82,6 +76,32 @@ auto ParseString(std::string_view& str) -> std::optional<std::string_view>
   return pos == std::string_view::npos
     ? std::nullopt // XXX(Unavailable): diagnostics
     : SplitAt(str, pos + 2); // XXX(Unavailable): diagnostics
+}
+
+auto ParseObject(std::string_view& str) -> std::optional<std::string_view>
+{
+  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
+  if (str[0] != '{') return std::nullopt; // XXX(Unavailable): diagnostics
+
+  // XXX(Unavailable): better name?
+  std::size_t counter = 0;
+
+  std::size_t i = 0;
+  do
+  {
+    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
+
+    // FIXME(Unavailable): Only checking '{' '}' is terrible; semantic parsing
+    // would be preferred.
+
+    if      (str[i] == '{') counter++;
+    else if (str[i] == '}') counter--;
+
+    if (counter == 0) break;
+  }
+  while (++i);
+
+  return SplitAt(str, i + 1); // XXX(Unavailable): diagnostics
 }
 
 auto NextKeyValue(std::string_view& str)
@@ -114,32 +134,6 @@ auto NextKeyValue(std::string_view& str)
   }
 
   return std::optional{std::pair{key, Value{value, valueKind}}};
-}
-
-auto ParseObject(std::string_view& str) -> std::optional<std::string_view>
-{
-  if (str.empty()) return std::nullopt; // XXX(Unavailable): diagnostics
-  if (str[0] != '{') return std::nullopt; // XXX(Unavailable): diagnostics
-
-  // XXX(Unavailable): better name?
-  std::size_t counter = 0;
-
-  std::size_t i = 0;
-  do
-  {
-    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
-
-    // FIXME(Unavailable): Only checking '{' '}' is terrible; semantic parsing
-    // would be preferred.
-
-    if      (str[i] == '{') counter++;
-    else if (str[i] == '}') counter--;
-
-    if (counter == 0) break;
-  }
-  while (++i);
-
-  return SplitAt(str, i + 1); // XXX(Unavailable): diagnostics
 }
 
 // Visit the contents of a `vdf` file contents.
