@@ -3,7 +3,6 @@
 #include <ranges>
 #include <vector>
 
-// XXX(Unavailable): constexpr all things.
 // XXX(Unavailable): Document usage of ({}) extension. ~~sorry not sorry MSVC~~
 
 // namespace Tokenizer
@@ -29,7 +28,8 @@ struct Value
       *_opt_;                          \
   })
 
-auto IsWhitespace(char c) -> bool
+[[nodiscard]]
+constexpr auto IsWhitespace(char c) noexcept -> bool
 {
   return c == ' '
     || c == '\f'
@@ -39,7 +39,8 @@ auto IsWhitespace(char c) -> bool
     || c == '\v';
 }
 
-auto SkipWhitespace(std::string_view& str) -> std::optional<std::monostate>
+constexpr auto SkipWhitespace(std::string_view& str) noexcept
+  -> std::optional<std::monostate>
 {
   auto view = str | std::views::drop_while(IsWhitespace);
   std::string_view trim {view.begin(), view.end()};
@@ -48,7 +49,7 @@ auto SkipWhitespace(std::string_view& str) -> std::optional<std::monostate>
     : std::optional{std::monostate{}};
 }
 
-auto SplitAt(std::string_view& str, std::size_t i)
+constexpr auto SplitAt(std::string_view& str, std::size_t i) noexcept
   -> std::optional<std::string_view>
 {
   if (i > str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
@@ -59,7 +60,8 @@ auto SplitAt(std::string_view& str, std::size_t i)
 }
 
 // PRECONDITIONS: str is not empty and starts with '"'.
-auto ParseString(std::string_view& str) -> std::optional<std::string_view>
+constexpr auto ParseString(std::string_view& str) noexcept
+  -> std::optional<std::string_view>
 {
   assert(!str.empty() && str[0] == '"');
 
@@ -70,7 +72,8 @@ auto ParseString(std::string_view& str) -> std::optional<std::string_view>
 }
 
 // PRECONDITIONS: str is not empty and starts with '{'.
-auto ParseObject(std::string_view& str) -> std::optional<std::string_view>
+constexpr auto ParseObject(std::string_view& str) noexcept
+  -> std::optional<std::string_view>
 {
   assert(!str.empty() && str[0] == '{');
 
@@ -95,7 +98,7 @@ auto ParseObject(std::string_view& str) -> std::optional<std::string_view>
   return SplitAt(str, i + 1); // XXX(Unavailable): diagnostics
 }
 
-auto NextKeyValue(std::string_view& str)
+constexpr auto NextKeyValue(std::string_view& str) noexcept
   -> std::optional<std::pair<std::string_view, Value>>
 {
   TRY(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
@@ -132,7 +135,7 @@ auto NextKeyValue(std::string_view& str)
 //
 // XXX(Unavailable): `bool strict`
 template<std::ranges::input_range R>
-auto VisitVDF(std::string_view vdf, const R& keys)
+constexpr auto VisitVDF(std::string_view vdf, const R& keys) noexcept
   -> std::optional<std::string_view>
 {
   if (std::ranges::empty(keys)) return {vdf};
@@ -167,26 +170,26 @@ auto main() -> int
   std::ranges::empty_view<std::string_view> empty_view;
 
   // Idempotent
-  assert(VisitVDF(R"("")",     empty_view) == R"("")");
-  assert(VisitVDF(R"("a" {})", empty_view) == R"("a" {})");
+  static_assert(VisitVDF(R"("")",     empty_view) == R"("")");
+  static_assert(VisitVDF(R"("a" {})", empty_view) == R"("a" {})");
 
   // Root
-  assert(VisitVDF(R"("a" {})", vector_sv{"a"}) == "{}");
+  static_assert(VisitVDF(R"("a" {})", vector_sv{"a"}) == R"({})");
 
   // Inner
-  auto abclibjav = R"("a" { "b" {} "c" { "lib" "jav" } })";
-  assert(VisitVDF(abclibjav, vector_sv{"a", "b"}) == R"({})");
-  assert(VisitVDF(abclibjav, vector_sv{"a", "c"}) == R"({ "lib" "jav" })");
+  constexpr auto abclibjav = R"("a" { "b" {} "c" { "lib" "jav" } })";
+  static_assert(VisitVDF(abclibjav, vector_sv{"a", "b"}) == R"({})");
+  static_assert(VisitVDF(abclibjav, vector_sv{"a", "c"}) == R"({ "lib" "jav" })");
 
   // Key repeat
-  assert(VisitVDF(R"("a" { "a" { "a" "a" }})", vector_sv{"a", "a", "a"}) == R"("a")");
+  static_assert(VisitVDF(R"("a" { "a" { "a" "a" }})", vector_sv{"a", "a", "a"}) == R"("a")");
 
   // XXX(Unavailable): Passes for now, shouldn't with `strict = true`.
-  assert(VisitVDF(R"("a" {{}})"            , empty_view)          == R"("a" {{}})"); // Parser doesn't validate the whole input.
-  assert(VisitVDF(R"("a" {} "b" {})"       , vector_sv{"b"})      == "{}"); // Top-level doesn't allow multiple keys.
-  assert(VisitVDF(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}) == "{}"); // Parser doesn't validate the whole input.
+  static_assert(VisitVDF(R"("a" {{}})"            , empty_view)          == R"("a" {{}})"); // Parser doesn't validate the whole input.
+  static_assert(VisitVDF(R"("a" {} "b" {})"       , vector_sv{"b"})      == "{}"); // Top-level doesn't allow multiple keys.
+  static_assert(VisitVDF(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}) == "{}"); // Parser doesn't validate the whole input.
   // XXX(Unavailable): This should probably also fail with `strict = false`.
-  assert(VisitVDF(R"("a" { "b" {"a"} })"   , vector_sv{"a", "b"}) == R"({"a"})"); // Object parsing doesn't validate contents inside "{}".
+  static_assert(VisitVDF(R"("a" { "b" {"a"} })"   , vector_sv{"a", "b"}) == R"({"a"})"); // Object parsing doesn't validate contents inside "{}".
 
   // XXX(Unavailable): Test steam configuration files.
 
