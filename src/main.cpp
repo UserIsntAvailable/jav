@@ -49,10 +49,11 @@ constexpr auto SkipWhitespace(std::string_view& str) noexcept
     : std::optional{std::monostate{}};
 }
 
+// PRECONDITIONS: i <= str.size()
 constexpr auto SplitAt(std::string_view& str, std::size_t i) noexcept
-  -> std::optional<std::string_view>
+  -> std::string_view
 {
-  if (i > str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
+  assert(i <= str.size());
 
   auto left = str.substr(0, i);
   str = str.substr(i);
@@ -63,19 +64,19 @@ constexpr auto SplitAt(std::string_view& str, std::size_t i) noexcept
 constexpr auto ParseString(std::string_view& str) noexcept
   -> std::optional<std::string_view>
 {
-  assert(!str.empty() && str[0] == '"');
+  assert(str.starts_with('"'));
 
   auto pos = str.substr(1).find('"');
   return pos == std::string_view::npos
     ? std::nullopt // XXX(Unavailable): diagnostics
-    : SplitAt(str, pos + 2); // XXX(Unavailable): diagnostics
+    : std::optional{SplitAt(str, pos + 2)};
 }
 
 // PRECONDITIONS: str is not empty and starts with '{'.
 constexpr auto ParseObject(std::string_view& str) noexcept
   -> std::optional<std::string_view>
 {
-  assert(!str.empty() && str[0] == '{');
+  assert(str.starts_with('{'));
 
   // XXX(Unavailable): better name?
   std::size_t counter = 0;
