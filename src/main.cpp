@@ -5,8 +5,6 @@
 
 // XXX(Unavailable): Document usage of ({}) extension. ~~sorry not sorry MSVC~~
 
-// namespace Tokenizer
-
 struct Value
 {
   enum struct Kind
@@ -78,25 +76,18 @@ constexpr auto ParseObject(std::string_view& str) noexcept
 {
   assert(str.starts_with('{'));
 
-  // XXX(Unavailable): better name?
-  std::size_t counter = 0;
-
-  std::size_t i = 0;
-  do
+  std::size_t scopes = 0;
+  for (auto [i, chr] : str | std::views::enumerate)
   {
-    if (i >= str.size()) return std::nullopt; // XXX(Unavailable): diagnostics
-
     // FIXME(Unavailable): Only checking '{' '}' is terrible; semantic parsing
     // would be preferred.
+    if      (chr == '{') scopes++;
+    else if (chr == '}') scopes--;
 
-    if      (str[i] == '{') counter++;
-    else if (str[i] == '}') counter--;
-
-    if (counter == 0) break;
+    if (scopes == 0) return SplitAt(str, i + 1);
   }
-  while (++i);
 
-  return SplitAt(str, i + 1); // XXX(Unavailable): diagnostics
+  return std::nullopt; // XXX(Unavailable): diagnostics
 }
 
 constexpr auto NextKeyValue(std::string_view& str) noexcept
@@ -127,7 +118,7 @@ constexpr auto NextKeyValue(std::string_view& str) noexcept
     return std::nullopt; // XXX(Unavailable): diagnostics
   }
 
-  return std::optional{std::pair{key, Value{valueKind, value}}};
+  return std::pair{key, Value{valueKind, value}};
 }
 
 // Visit the contents of a `vdf` file contents.
