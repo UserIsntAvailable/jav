@@ -55,7 +55,7 @@ constexpr auto SplitAt(std::string_view& str, std::size_t i) noexcept
 
   auto left = str.substr(0, i);
   str = str.substr(i);
-  return {left};
+  return left;
 }
 
 // PRECONDITIONS: str is not empty and starts with '"'.
@@ -101,24 +101,22 @@ constexpr auto NextKeyValue(std::string_view& str) noexcept
 
   TRY(SkipWhitespace(str)); // XXX(Unavailable): diagnostics
 
-  std::string_view value;
-  Value::Kind valueKind;
   if (str[0] == '"')
   {
-    value = TRY(ParseString(str)); // XXX(Unavailable): diagnostics
-    valueKind = Value::Kind::STRING;
+    return std::pair{
+      key,
+      Value{Value::Kind::STRING, TRY(ParseString(str))} // XXX(Unavailable): diagnostics
+    };
   }
   else if (str[0] == '{')
   {
-    value = TRY(ParseObject(str)); // XXX(Unavailable): diagnostics
-    valueKind = Value::Kind::OBJECT;
-  }
-  else
-  {
-    return std::nullopt; // XXX(Unavailable): diagnostics
+    return std::pair{
+      key,
+      Value{Value::Kind::OBJECT, TRY(ParseObject(str))} // XXX(Unavailable): diagnostics
+    };
   }
 
-  return std::pair{key, Value{valueKind, value}};
+  return std::nullopt; // XXX(Unavailable): diagnostics
 }
 
 // Visit the contents of a `vdf` file contents.
@@ -130,7 +128,7 @@ template<std::ranges::input_range R>
 constexpr auto VisitVDF(std::string_view vdf, const R& keys) noexcept
   -> std::optional<std::string_view>
 {
-  if (std::ranges::empty(keys)) return {vdf};
+  if (std::ranges::empty(keys)) return vdf;
 
   auto keysBegin = std::ranges::begin(keys);
   const auto keysEnd = std::ranges::end(keys);
@@ -144,7 +142,7 @@ constexpr auto VisitVDF(std::string_view vdf, const R& keys) noexcept
     if (keyStripped == *keysBegin)
     {
       keysBegin = std::next(keysBegin);
-      if (keysBegin == keysEnd) return {value.data};
+      if (keysBegin == keysEnd) return value.data;
 
       if (value.kind != Value::Kind::OBJECT) return std::nullopt; // XXX(unavailable): diagnostics
       curObj = value.data.substr(1); // Skip '{'
@@ -169,9 +167,9 @@ auto main() -> int
   static_assert(VisitVDF(R"("a" {})", vector_sv{"a"}) == R"({})");
 
   // Inner
-  constexpr auto abclibjav = R"("a" { "b" {} "c" { "lib" "jav" } })";
-  static_assert(VisitVDF(abclibjav, vector_sv{"a", "b"}) == R"({})");
-  static_assert(VisitVDF(abclibjav, vector_sv{"a", "c"}) == R"({ "lib" "jav" })");
+  constexpr auto abclib = R"("a" { "b" {} "c" { "lib" "jav" } })";
+  static_assert(VisitVDF(abclib, vector_sv{"a", "b"}) == R"({})");
+  static_assert(VisitVDF(abclib, vector_sv{"a", "c"}) == R"({ "lib" "jav" })");
 
   // Key repeat
   static_assert(VisitVDF(R"("a" { "a" { "a" "a" }})", vector_sv{"a", "a", "a"}) == R"("a")");
