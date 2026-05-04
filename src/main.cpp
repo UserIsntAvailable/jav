@@ -54,7 +54,7 @@ constexpr auto SplitAt(std::string_view& str, std::size_t i) noexcept
   assert(i <= str.size());
 
   auto left = str.substr(0, i);
-  str = str.substr(i);
+  str.remove_prefix(i);
   return left;
 }
 
@@ -64,10 +64,16 @@ constexpr auto ParseString(std::string_view& str) noexcept
 {
   assert(str.starts_with('"'));
 
-  auto pos = str.substr(1).find('"');
+  std::size_t pos = 0;
+  for (;;)
+  {
+    pos = str.find('"', pos + 1);
+    if (str[pos-1] != '\\') break;
+  }
+
   return pos == std::string_view::npos
     ? std::nullopt // XXX(Unavailable): diagnostics
-    : std::optional{SplitAt(str, pos + 2)};
+    : std::optional{SplitAt(str, pos + 1)};
 }
 
 // PRECONDITIONS: str is not empty and starts with '{'.
@@ -159,6 +165,8 @@ auto main() -> int
   using vector_sv = std::vector<std::string_view>;
   std::ranges::empty_view<std::string_view> empty_view;
 
+  // Should Pass
+
   // Idempotent
   static_assert(VisitVDF(R"("")",     empty_view) == R"("")");
   static_assert(VisitVDF(R"("a" {})", empty_view) == R"("a" {})");
@@ -180,6 +188,14 @@ auto main() -> int
   static_assert(VisitVDF(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}) == "{}"); // Parser doesn't validate the whole input.
   // XXX(Unavailable): This should probably also fail with `strict = false`.
   static_assert(VisitVDF(R"("a" { "b" {"a"} })"   , vector_sv{"a", "b"}) == R"({"a"})"); // Object parsing doesn't validate contents inside "{}".
+
+  // String Escaping
+  static_assert(VisitVDF(R"("\"hello\"" { "\"world\"" "GO\"NE" } )", vector_sv{"\\\"hello\\\"", "\\\"world\\\""}) == R"("GO\"NE")");
+
+  // Should Fail
+
+  // Proper object scoping
+  assert(!VisitVDF(R"("a" { "b" { "c" "c" } "d" "d" })", vector_sv{"a", "b", "d"}).has_value());
 
   // XXX(Unavailable): Test steam configuration files.
 
