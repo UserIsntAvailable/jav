@@ -3,6 +3,8 @@
 #include <ranges>
 #include <vector>
 
+// XXX(Unavailable): Document that this library only implement the V1 (text
+// version) of the file format.
 // XXX(Unavailable): Document usage of ({}) extension. ~~sorry not sorry MSVC~~
 
 struct Value
@@ -128,8 +130,6 @@ constexpr auto NextKeyValue(std::string_view& str) noexcept
 // Visit the contents of a `vdf` file contents.
 //
 // DOCS(Unavailable): Examples
-//
-// XXX(Unavailable): `bool strict`
 template<std::ranges::input_range R>
 constexpr auto VisitVDF(std::string_view vdf, const R& keys) noexcept
   -> std::optional<std::string_view>

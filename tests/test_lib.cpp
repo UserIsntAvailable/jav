@@ -4,7 +4,7 @@
 #include "../src/main.cpp"
 
 #define STATIC_CHECK(...) static_assert(__VA_ARGS__); CHECK(__VA_ARGS__);
-#define STATIC_CHECK_EQ(ARG1, ARG2) static_assert(ARG1 == ARG2); CHECK_EQ(ARG1, ARG2);
+#define STATIC_CHECK_EQ(ARG1, ARG2) STATIC_CHECK(ARG1 == ARG2);
 
 using vector_sv = std::vector<std::string_view>;
 using empty_view = std::ranges::empty_view<std::string_view>;
@@ -28,6 +28,16 @@ TEST_CASE("top-level")
     VisitVDF(R"("a" {})", vector_sv{"a"}),
     "{}"
   );
+
+  STATIC_CHECK_EQ(
+    VisitVDF(R"("a" {} "b" {})", vector_sv{"b"}),
+    "{}"
+  );
+
+  STATIC_CHECK_EQ(
+    VisitVDF(R"("a" {} "b" { "a" {} } "c" "skip")", vector_sv{"c"}),
+    R"("skip")"
+  );
 }
 
 TEST_CASE("inner")
@@ -50,6 +60,9 @@ TEST_CASE("inner")
   );
 }
 
+// FIXME(Unavailable): Drop the idea of `strict`. VisitVDF _by default_ should
+// validate the whole input string; as such, all checks in this TEST_CASE should
+// considered invalid.
 TEST_CASE("strict=false")
 {
   STATIC_CHECK_EQ(
@@ -61,11 +74,6 @@ TEST_CASE("strict=false")
     VisitVDF(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}),
     "{}"
   ); // Parser doesn't validate the whole input.
-
-  STATIC_CHECK_EQ(
-    VisitVDF(R"("a" {} "b" {})", vector_sv{"b"}),
-    "{}"
-  ); // Top-level doesn't allow multiple keys.
 
   // XXX(Unavailable): This should probably also fail with `strict = false`.
   STATIC_CHECK_EQ(
@@ -84,5 +92,13 @@ TEST_CASE("string escaping")
 
 TEST_CASE("object scoping")
 {
+  // XXX(Unavailable): Why this can't `STATIC_CHECK`?
   CHECK(!VisitVDF(R"("a" { "b" { "c" "c" } "d" "d" })", vector_sv{"a", "b", "d"}).has_value());
 }
+
+// FIXME(Unavailable): Comment parsing.
+// FIXME(Unavailable): You can have duplicated keys; last key should win (it is
+// what most implementations do), so VisitVDF should not exit as soon as possible.
+
+// XXX(Unavailable): Invalid file tests.
+// XXX(Unavailable): Inconsistent whitespace tests.
