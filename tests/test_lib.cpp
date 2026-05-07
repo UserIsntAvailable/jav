@@ -1,7 +1,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #define DOCTEST_CONFIG_SUPER_FAST_ASSERTS
 #include "doctest.h"
-#include "../src/main.cpp"
+#include <vector>
+#include <jav/jav.hpp>
 
 #define STATIC_CHECK(...) static_assert(__VA_ARGS__); CHECK(__VA_ARGS__);
 #define STATIC_CHECK_EQ(ARG1, ARG2) STATIC_CHECK(ARG1 == ARG2);
@@ -12,12 +13,12 @@ using empty_view = std::ranges::empty_view<std::string_view>;
 TEST_CASE("idempotent")
 {
   STATIC_CHECK_EQ(
-    VisitVDF(R"("")", empty_view{}),
+    jav::findKey(R"("")", empty_view{}),
     R"("")"
   );
 
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" {})", empty_view{}),
+    jav::findKey(R"("a" {})", empty_view{}),
     R"("a" {})"
   );
 }
@@ -25,17 +26,17 @@ TEST_CASE("idempotent")
 TEST_CASE("top-level")
 {
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" {})", vector_sv{"a"}),
+    jav::findKey(R"("a" {})", vector_sv{"a"}),
     "{}"
   );
 
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" {} "b" {})", vector_sv{"b"}),
+    jav::findKey(R"("a" {} "b" {})", vector_sv{"b"}),
     "{}"
   );
 
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" {} "b" { "a" {} } "c" "skip")", vector_sv{"c"}),
+    jav::findKey(R"("a" {} "b" { "a" {} } "c" "skip")", vector_sv{"c"}),
     R"("skip")"
   );
 }
@@ -45,17 +46,17 @@ TEST_CASE("inner")
   constexpr auto abclib = R"("a" { "b" {} "c" { "lib" "jav" } })";
 
   STATIC_CHECK_EQ(
-    VisitVDF(abclib, vector_sv{"a", "b"}),
+    jav::findKey(abclib, vector_sv{"a", "b"}),
     "{}"
   );
 
   STATIC_CHECK_EQ(
-    VisitVDF(abclib, vector_sv{"a", "c"}),
+    jav::findKey(abclib, vector_sv{"a", "c"}),
     R"({ "lib" "jav" })"
   );
 
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" { "a" { "a" "a" }})", vector_sv{"a", "a", "a"}),
+    jav::findKey(R"("a" { "a" { "a" "a" }})", vector_sv{"a", "a", "a"}),
     R"("a")"
   );
 }
@@ -66,18 +67,18 @@ TEST_CASE("inner")
 TEST_CASE("strict=false")
 {
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" {{}})" , empty_view{}),
+    jav::findKey(R"("a" {{}})" , empty_view{}),
     R"("a" {{}})"
   ); // Parser doesn't validate the whole input.
 
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}),
+    jav::findKey(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}),
     "{}"
   ); // Parser doesn't validate the whole input.
 
   // XXX(Unavailable): This should probably also fail with `strict = false`.
   STATIC_CHECK_EQ(
-    VisitVDF(R"("a" { "b" {"a"} })", vector_sv{"a", "b"}),
+    jav::findKey(R"("a" { "b" {"a"} })", vector_sv{"a", "b"}),
     R"({"a"})"
   ); // Object parsing doesn't validate contents inside "{}".
 }
@@ -85,7 +86,7 @@ TEST_CASE("strict=false")
 TEST_CASE("string escaping")
 {
   STATIC_CHECK_EQ(
-    VisitVDF(R"("\"hello\"" { "\"world\"" "GO\"NE" } )", vector_sv{"\\\"hello\\\"", "\\\"world\\\""}),
+    jav::findKey(R"("\"hello\"" { "\"world\"" "GO\"NE" } )", vector_sv{"\\\"hello\\\"", "\\\"world\\\""}),
     R"("GO\"NE")"
   );
 }
@@ -93,7 +94,7 @@ TEST_CASE("string escaping")
 TEST_CASE("object scoping")
 {
   // XXX(Unavailable): Why this can't `STATIC_CHECK`?
-  CHECK(!VisitVDF(R"("a" { "b" { "c" "c" } "d" "d" })", vector_sv{"a", "b", "d"}).has_value());
+  CHECK(!jav::findKey(R"("a" { "b" { "c" "c" } "d" "d" })", vector_sv{"a", "b", "d"}).has_value());
 }
 
 // FIXME(Unavailable): Comment parsing.

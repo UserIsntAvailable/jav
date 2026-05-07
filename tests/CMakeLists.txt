@@ -9,7 +9,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(doctest)
 
 add_executable(tests test_lib.cpp)
-target_link_libraries(tests PRIVATE doctest::doctest)
+target_link_libraries(tests PRIVATE
+  jav::jav
+  doctest::doctest
+)
 
 target_compile_options(tests PRIVATE
   -Wall

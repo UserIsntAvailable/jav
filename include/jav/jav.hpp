@@ -1,11 +1,19 @@
+#pragma once
+
 #include <cassert>
-#include <print>
+#include <optional>
 #include <ranges>
-#include <vector>
+#include <string_view>
 
 // XXX(Unavailable): Document that this library only implement the V1 (text
 // version) of the file format.
 // XXX(Unavailable): Document usage of ({}) extension. ~~sorry not sorry MSVC~~
+
+namespace jav
+{
+
+namespace _private
+{
 
 struct Value
 {
@@ -127,13 +135,17 @@ constexpr auto NextKeyValue(std::string_view& str) noexcept
   return std::nullopt; // XXX(Unavailable): diagnostics
 }
 
-// Visit the contents of a `vdf` file contents.
+} // namespace _private
+
+// Find the value of a key path inside of `vdf` contents.
 //
 // DOCS(Unavailable): Examples
 template<std::ranges::input_range R>
-constexpr auto VisitVDF(std::string_view vdf, const R& keys) noexcept
+constexpr auto findKey(std::string_view vdf, const R& keys) noexcept
   -> std::optional<std::string_view>
 {
+  using namespace _private;
+
   if (std::ranges::empty(keys)) return vdf;
 
   auto keysBegin = std::ranges::begin(keys);
@@ -157,3 +169,5 @@ constexpr auto VisitVDF(std::string_view vdf, const R& keys) noexcept
 
   std::unreachable();
 }
+
+} // namespace jav
