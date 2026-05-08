@@ -20,9 +20,6 @@ target_compile_options(tests PRIVATE
   -Wconversion
   -Wold-style-cast
   -Wunused
-
-  -Wpedantic
-  -Wno-c++26-extensions
 )
 
 include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")

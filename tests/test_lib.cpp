@@ -13,8 +13,13 @@ using empty_view = std::ranges::empty_view<std::string_view>;
 TEST_CASE("idempotent")
 {
   STATIC_CHECK_EQ(
-    jav::findKey(R"("")", empty_view{}),
-    R"("")"
+    jav::findKey("", empty_view{}),
+    ""
+  );
+
+  STATIC_CHECK_EQ(
+    jav::findKey(R"("a" "b")", empty_view{}),
+    R"("a" "b")"
   );
 
   STATIC_CHECK_EQ(
@@ -61,28 +66,6 @@ TEST_CASE("inner")
   );
 }
 
-// FIXME(Unavailable): Drop the idea of `strict`. VisitVDF _by default_ should
-// validate the whole input string; as such, all checks in this TEST_CASE should
-// considered invalid.
-TEST_CASE("strict=false")
-{
-  STATIC_CHECK_EQ(
-    jav::findKey(R"("a" {{}})" , empty_view{}),
-    R"("a" {{}})"
-  ); // Parser doesn't validate the whole input.
-
-  STATIC_CHECK_EQ(
-    jav::findKey(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}),
-    "{}"
-  ); // Parser doesn't validate the whole input.
-
-  // XXX(Unavailable): This should probably also fail with `strict = false`.
-  STATIC_CHECK_EQ(
-    jav::findKey(R"("a" { "b" {"a"} })", vector_sv{"a", "b"}),
-    R"({"a"})"
-  ); // Object parsing doesn't validate contents inside "{}".
-}
-
 TEST_CASE("string escaping")
 {
   STATIC_CHECK_EQ(
@@ -93,13 +76,70 @@ TEST_CASE("string escaping")
 
 TEST_CASE("object scoping")
 {
-  // XXX(Unavailable): Why this can't `STATIC_CHECK`?
-  CHECK(!jav::findKey(R"("a" { "b" { "c" "c" } "d" "d" })", vector_sv{"a", "b", "d"}).has_value());
+  STATIC_CHECK_EQ(
+    jav::findKey(R"("a" { "b" { "c" "c" } "d" "d" })", vector_sv{"a", "b", "d"}),
+    std::nullopt
+  );
 }
 
-// FIXME(Unavailable): Comment parsing.
-// FIXME(Unavailable): You can have duplicated keys; last key should win (it is
-// what most implementations do), so VisitVDF should not exit as soon as possible.
+TEST_CASE("comment")
+{
+  STATIC_CHECK_EQ(
+    jav::findKey(R"(// Hello, World!"abc" {})", vector_sv{"abc"}),
+    "{}"
+  ); // Before key value
 
-// XXX(Unavailable): Invalid file tests.
-// XXX(Unavailable): Inconsistent whitespace tests.
+  STATIC_CHECK_EQ(
+    jav::findKey(R"("def" {}// Goodbye, World!)", vector_sv{"def"}),
+    "{}"
+  ); // After key value
+
+  STATIC_CHECK_EQ(
+    jav::findKey(R"("abc" {}// MITM"def" {})", vector_sv{"def"}),
+    "{}"
+  ); // In between key values
+
+  STATIC_CHECK_EQ(
+    jav::findKey(R"("ghi" //Why is this allowed? "jkl")", vector_sv{"ghi"}),
+    R"("jkl")"
+  ); // After key
+
+  STATIC_CHECK_EQ(
+    jav::findKey(R"(// Returned as is)", empty_view{}),
+    "// Returned as is"
+  ); // Comments can be terminated with EOF
+}
+
+TEST_CASE("duplicate keys")
+{
+  STATIC_CHECK_EQ(
+    jav::findKey(R"("a" "b" "a" "c")", vector_sv{"a"}),
+    R"("c")"
+  ); // Same object
+
+  STATIC_CHECK_EQ(
+    jav::findKey(R"("a" { "b" { "c" { "d" "d" "d" "e" } } "b" { "c" { "d" "f" } } } )", vector_sv{"a", "b", "c", "d"}),
+    R"("f")"
+  ); // Different object
+}
+
+TEST_CASE("inconsistent whitespace")
+{
+  STATIC_CHECK_EQ(
+    jav::findKey("\f\"a\"\t\f\n{\"b\"\f{\n\"c\"\v\"s\"}}\n\"c\"\"c\"", vector_sv{"c"}),
+    R"("c")"
+  );
+}
+
+TEST_CASE("invalid")
+{
+  // XXX(Unavailable): Make these STATIC_CHECK
+  // FIXME(Unavailable): Actually validate that errors have the correct spans.
+
+  CHECK(!jav::findKey(R"("")", empty_view{}).has_value());
+  CHECK(!jav::findKey(R"("a" {{}})" , empty_view{}).has_value());
+  CHECK(!jav::findKey(R"("a" { "b" {}} {{}} })", vector_sv{"a", "b"}).has_value());
+  CHECK(!jav::findKey(R"("a" { "b" {"a"} })", vector_sv{"a", "b"}).has_value());
+}
+
+// XXX(Unavailable): fuzzing tests
