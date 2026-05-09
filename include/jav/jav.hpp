@@ -149,12 +149,12 @@ public:
       if (!res) return std::unexpected(res.error());
       curChar = *res;
     }
-    while(isSpace(curChar));
+    while (isSpace(curChar));
 
     const auto curPos = loc.pos - 1;
     if (curChar == '"')
     {
-      for(;;)
+      for (;;)
       {
         if (TRY(nextChar()) == '"' && buf[loc.pos - 2] != '\\')
         {
@@ -411,6 +411,23 @@ constexpr auto nextKey(
 
 } // namespace _private
 
+[[nodiscard]]
+constexpr auto validate(std::string_view vdf) noexcept
+  -> std::expected<std::monostate, Error>
+{
+  using namespace _private;
+
+  Lexer lexer {vdf};
+  KeyPath keyPath {std::ranges::empty_view<std::string_view>{}};
+
+  while (!TRY(nextKey(lexer, keyPath, false))) {}
+
+  return std::monostate{};
+}
+
+// XXX(Unavailable): Allow multiple keys to be search at the same time.
+// TODO(Unavailable): Constrain `R` to yield objects that could be compared with std::string_view
+
 // Find the value of a key path inside of `vdf` contents.
 //
 // DOCS(Unavailable): Examples
@@ -421,17 +438,15 @@ constexpr auto findKey(std::string_view vdf, const R& path) noexcept
 {
   using namespace _private;
 
-  Lexer lexer {vdf};
-
-  // Just check if vdf is valid.
   if (std::ranges::empty(path))
   {
-    KeyPath empty {std::ranges::empty_view<std::string_view>{}};
-    while (!TRY(nextKey(lexer, empty, false))) {}
+    TRY(validate(vdf));
     return std::optional{vdf};
   }
 
+  Lexer lexer {vdf};
   KeyPath keyPath {path};
+
   while (!TRY(nextKey(lexer, keyPath, true))) {}
 
   return keyPath.value.empty()

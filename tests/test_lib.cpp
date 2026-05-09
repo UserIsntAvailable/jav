@@ -142,4 +142,23 @@ TEST_CASE("invalid")
   CHECK(!jav::findKey(R"("a" { "b" {"a"} })", vector_sv{"a", "b"}).has_value());
 }
 
+TEST_CASE("jav::findKey == jav::validate")
+{
+  constexpr auto valid1 = R"("settings" { "option1" "enable" "option2" "disabled" })";
+  STATIC_CHECK(jav::findKey(valid1, empty_view{}).has_value())
+  STATIC_CHECK(jav::validate(valid1).has_value())
+
+  constexpr auto valid2 = R"("root" { })";
+  STATIC_CHECK(jav::findKey(valid2, empty_view{}).has_value())
+  STATIC_CHECK(jav::validate(valid2).has_value())
+
+  constexpr auto invalid1 = R"("root" { key "value" })";
+  CHECK(!jav::findKey(invalid1, empty_view{}).has_value());
+  CHECK(!jav::validate(invalid1).has_value());
+
+  constexpr auto invalid2 = R"("root" { "key" })";
+  CHECK(!jav::findKey(invalid2, empty_view{}).has_value());
+  CHECK(!jav::validate(invalid2).has_value());
+}
+
 // XXX(Unavailable): fuzzing tests
