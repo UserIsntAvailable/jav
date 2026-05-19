@@ -5,6 +5,8 @@ project(jav VERSION 0.1.0 LANGUAGES CXX)
 option(BUILD_TESTING "Build tests" OFF)
 include(CTest)
 
+option(BUILD_CLI "Build jav CLI" ON)
+
 if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 23)
 endif()
@@ -18,6 +20,10 @@ target_include_directories(jav INTERFACE
 )
 
 target_compile_features(jav INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
+
+if(BUILD_CLI)
+  add_subdirectory(src)
+endif()
 
 if(BUILD_TESTING)
   add_subdirectory(tests)
