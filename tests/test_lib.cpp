@@ -161,4 +161,47 @@ TEST_CASE("jav::findKey == jav::validate")
   CHECK(!jav::validate(invalid2).has_value());
 }
 
+TEST_CASE("std::formatter<Error>")
+{
+  using namespace jav;
+
+  const auto error = [](auto... kinds)
+  {
+    // XXX(Unavailable): C++26 constexpr std::format
+    return std::format(
+      "{}",
+      Error {
+        Error::ExpectedToken {
+          (0 | ... | std::to_underlying(kinds)),
+          Token {
+            Token::Kind::INVALID,
+            std::string_view{"<wrong>"},
+          }
+        },
+        Location { 420, 69, 42 }
+      }
+    );
+  };
+
+  CHECK_EQ(
+    error(Token::Kind::STRING),
+    "69:42: Expected token '\"', but found '<wrong>'"
+  );
+
+  CHECK_EQ(
+    error(Token::Kind::STRING, Token::Kind::OCURLY, Token::Kind::CCURLY),
+    "69:42: Expected token '\"', '{' or '}', but found '<wrong>'"
+  );
+
+  CHECK_EQ(
+    error(Token::Kind::INVALID, Token::Kind::COMMENT),
+    "69:42: Expected token '//', but found '<wrong>'"
+  );
+
+  CHECK_EQ(
+    error(Token::Kind::INVALID),
+    "69:42: Expected token <unknown kind>, but found '<wrong>'"
+  );
+}
+
 // XXX(Unavailable): fuzzing tests

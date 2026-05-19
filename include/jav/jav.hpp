@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <format>
 #include <iterator>
 #include <optional>
 #include <ranges>
@@ -106,15 +108,14 @@ struct Location
   std::size_t col;
 };
 
-// TODO(Unavailable): std::formatter<>
 struct Error
 {
   struct Eof {};
   struct ExpectedToken
   {
     // Bitmask of the token kinds that where expected.
-    // eg. (int)Token::Kind::STRING | (int)Token::Kind::OCURLY
-    int expected;
+    // eg. std::to_underlying(Token::Kind::STRING) | std::to_underlying(Token::Kind::OCURLY)
+    std::underlying_type_t<Token::Kind> expected;
     Token actual;
   };
 
@@ -318,8 +319,8 @@ constexpr auto skipToClosingCurly(
 
       return std::unexpected(Error {
         Error::ExpectedToken {
-          static_cast<int>(Token::Kind::STRING)
-            | static_cast<int>(Token::Kind::CCURLY),
+          std::to_underlying(Token::Kind::STRING)
+            | std::to_underlying(Token::Kind::CCURLY),
           Token {
             Token::Kind::INVALID,
             lexer.buf.substr(curPos, lexer.loc.pos - curPos),
@@ -361,7 +362,7 @@ constexpr auto nextKey(
   {
     return std::unexpected(Error {
       Error::ExpectedToken {
-        static_cast<int>(Token::Kind::STRING),
+        std::to_underlying(Token::Kind::STRING),
         key
       },
       lexer.loc
@@ -396,8 +397,8 @@ constexpr auto nextKey(
   {
     return std::unexpected(Error {
       Error::ExpectedToken {
-        static_cast<int>(Token::Kind::STRING)
-          | static_cast<int>(Token::Kind::OCURLY),
+        std::to_underlying(Token::Kind::STRING)
+          | std::to_underlying(Token::Kind::OCURLY),
         key
       },
       lexer.loc
@@ -455,3 +456,102 @@ constexpr auto findKey(std::string_view vdf, const R& path) noexcept
 }
 
 } // namespace jav
+
+namespace std
+{
+
+template<>
+struct formatter<jav::Error>
+{
+  template<class... Ts>
+  struct overloads : Ts... { using Ts::operator()...; };
+
+  struct TokenRepr
+  {
+    jav::Token::Kind kind;
+    const char* repr;
+  };
+
+  static constexpr std::array tokenReprs
+  {
+    TokenRepr{jav::Token::Kind::STRING, "\""},
+    TokenRepr{jav::Token::Kind::OCURLY, "{"},
+    TokenRepr{jav::Token::Kind::CCURLY, "}"},
+    TokenRepr{jav::Token::Kind::COMMENT, "//"},
+  };
+
+  template<class ParseContext>
+  constexpr auto parse(ParseContext& ctx) -> ParseContext::iterator
+  {
+    // XXX(Unavailable): Error out on unknown format specifiers?
+    return ctx.begin();
+  }
+
+  template<class FormatContext>
+  auto format(const jav::Error& err, FormatContext& ctx) const
+    -> FormatContext::iterator
+  {
+    auto out = std::format_to(
+      ctx.out(),
+      "{}:{}: ",
+      err.loc.row,
+      err.loc.col
+    );
+
+    const auto visitor = overloads {
+      [&](const jav::Error::Eof&)
+      {
+        return std::format_to(std::move(out), "Unexpected end of file");
+      },
+      [&](const jav::Error::ExpectedToken& e)
+      {
+        out = std::format_to(std::move(out), "Expected token ");
+
+        const auto isKnownTokenKind = [&](const TokenRepr& token)
+        {
+          return (e.expected & std::to_underlying(token.kind)) != 0;
+        };
+
+        const auto knownKinds = std::ranges::count_if(
+          tokenReprs,
+          isKnownTokenKind
+        );
+
+        if (knownKinds == 0)
+        {
+          out = std::format_to(std::move(out), "<unknown kind>");
+        }
+        else
+        {
+          auto iter = tokenReprs
+            | std::views::filter(isKnownTokenKind)
+            | std::views::enumerate;
+          for (const auto& [index, token] : iter)
+          {
+            if (index > 0)
+            {
+              // XXX(Unavailable): why `consteval` doesn't like this ternary?
+              // ```
+              // out = std::format_to(
+              //   std::move(out),
+              //   index == knownKinds - 1 ? " or " : ", "
+              // );
+              // ```
+              out = index == knownKinds - 1
+                ? std::format_to(std::move(out), " or ")
+                : std::format_to(std::move(out), ", ");
+            }
+
+            out = std::format_to(std::move(out), "'{}'", token.repr);
+          }
+        }
+
+        return std::format_to(std::move(out), ", but found '{}'", e.actual.span);
+      }
+    };
+
+    return std::visit(visitor, err.kind);
+  }
+};
+
+} // namespace std
