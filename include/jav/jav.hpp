@@ -13,10 +13,6 @@
 #include <utility>
 #include <variant>
 
-// XXX(Unavailable): Document that this library only implement the V1 (text
-// version) of the file format.
-// XXX(Unavailable): Document usage of ({}) extension. ~~sorry not sorry MSVC~~
-
 namespace jav
 {
 
